@@ -1,0 +1,24 @@
+[Unit]
+Description=Marketplace Queue Worker
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/marketplace
+ExecStart=/usr/bin/php /var/www/marketplace/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600 --timeout=300
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/marketplace-worker.log
+StandardError=append:/var/log/marketplace-worker-error.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/marketplace/storage
+
+[Install]
+WantedBy=multi-user.target

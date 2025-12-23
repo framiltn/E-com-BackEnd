@@ -1,0 +1,52 @@
+# Logs & OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.backup
+.env.production
+.env.local
+.env.testing
+.env.*.backup
+
+# PHP / Laravel cache
+.phpactor.json
+.phpunit.result.cache
+/.phpunit.cache
+.phpunit.cache
+
+# IDE folders
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+
+# Composer dependencies
+/vendor
+
+# Node dependencies (if using Laravel Mix or Vite)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Laravel build artifacts
+/public/build
+/public/hot
+/public/storage  # symlink
+/storage/*.key
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/pail
+
+# Homestead
+Homestead.json
+Homestead.yaml
+
+# Other sensitive files
+auth.json
+composer.lock (optional—keep if you want reproducible builds)

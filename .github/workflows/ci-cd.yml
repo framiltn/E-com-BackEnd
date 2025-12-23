@@ -1,0 +1,114 @@
+name: Laravel CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: marketplace_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, json, pgsql, redis, bcmath, gd
+        coverage: xdebug
+
+    - name: Copy .env
+      run: |
+        cp .env.example .env
+        sed -i 's/DB_CONNECTION=sqlite/DB_CONNECTION=pgsql/' .env
+        sed -i 's/# DB_HOST=127.0.0.1/DB_HOST=127.0.0.1/' .env
+        sed -i 's/# DB_DATABASE=laravel/DB_DATABASE=marketplace_test/' .env
+        sed -i 's/# DB_USERNAME=root/DB_USERNAME=postgres/' .env
+        sed -i 's/# DB_PASSWORD=/DB_PASSWORD=postgres/' .env
+
+    - name: Install Dependencies
+      run: composer install --prefer-dist --no-progress --no-suggest
+
+    - name: Generate key
+      run: php artisan key:generate
+
+    - name: Directory Permissions
+      run: chmod -R 777 storage bootstrap/cache
+
+    - name: Run Migrations
+      run: php artisan migrate --force
+      env:
+        DB_CONNECTION: pgsql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 5432
+        DB_DATABASE: marketplace_test
+        DB_USERNAME: postgres
+        DB_PASSWORD: postgres
+
+    - name: Run Tests
+      run: php artisan test --coverage
+      env:
+        DB_CONNECTION: pgsql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 5432
+        DB_DATABASE: marketplace_test
+        DB_USERNAME: postgres
+        DB_PASSWORD: postgres
+
+    - name: Security Check
+      run: |
+        composer require --dev enlightn/security-checker
+        vendor/bin/security-checker security:check
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Deploy to Production
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USER }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
+        script: |
+          cd /var/www/marketplace
+          git pull origin main
+          composer install --optimize-autoloader --no-dev
+          php artisan migrate --force
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          sudo systemctl restart php8.2-fpm
+          sudo systemctl restart marketplace-worker

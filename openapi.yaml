@@ -1,0 +1,724 @@
+openapi: 3.0.0
+info:
+  title: Marketplace API
+  description: Complete API documentation for Multi-Vendor Marketplace with 3-Level Affiliate System
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@marketplace.com
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local Development Server
+  - url: https://api.marketplace.com
+    description: Production Server
+
+tags:
+  - name: Authentication
+    description: User registration, login, and authentication
+  - name: Products
+    description: Product browsing and management
+  - name: Categories
+    description: Category browsing
+  - name: Cart
+    description: Shopping cart operations
+  - name: Checkout
+    description: Checkout and order placement
+  - name: Payment
+    description: Razorpay payment integration
+  - name: Coupons
+    description: Coupon validation
+  - name: Reviews
+    description: Product reviews and ratings
+  - name: Refunds
+    description: Refund requests and management
+  - name: Notifications
+    description: User notifications
+  - name: Affiliate
+    description: 3-level affiliate system
+  - name: Payouts
+    description: Seller and affiliate payouts
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [buyer, seller, admin]
+        created_at:
+          type: string
+          format: date-time
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          minimum: 1200
+        stock:
+          type: integer
+        commission_level:
+          type: string
+          enum: ["6-4-2", "9-6-3", "12-8-4"]
+        brand:
+          type: string
+        category_id:
+          type: integer
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        total_amount:
+          type: number
+        payment_status:
+          type: string
+          enum: [pending, paid, failed, refunded]
+        order_status:
+          type: string
+          enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+
+paths:
+  /register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - password_confirmation
+                - role
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+                password_confirmation:
+                  type: string
+                  format: password
+                  example: password123
+                role:
+                  type: string
+                  enum: [buyer, seller]
+                  example: buyer
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+        '401':
+          description: Invalid credentials
+
+  /user:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthenticated
+
+  /logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+
+  /products:
+    get:
+      tags:
+        - Products
+      summary: Browse all products
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 15
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  meta:
+                    type: object
+
+  /products/{id}:
+    get:
+      tags:
+        - Products
+      summary: Get product details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+
+  /seller/products:
+    post:
+      tags:
+        - Products
+      summary: Create product (Seller only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - price
+                - stock
+                - commission_level
+              properties:
+                name:
+                  type: string
+                  example: Amazing Product
+                description:
+                  type: string
+                  example: High quality product
+                price:
+                  type: number
+                  minimum: 1200
+                  example: 1500
+                stock:
+                  type: integer
+                  example: 100
+                commission_level:
+                  type: string
+                  enum: ["6-4-2", "9-6-3", "12-8-4"]
+                  example: "6-4-2"
+                brand:
+                  type: string
+                  example: Test Brand
+                category_id:
+                  type: integer
+                  example: 1
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '422':
+          description: Validation error
+
+  /categories:
+    get:
+      tags:
+        - Categories
+      summary: Get all categories
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    slug:
+                      type: string
+
+  /cart:
+    get:
+      tags:
+        - Cart
+      summary: View cart
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Cart items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /cart/add:
+    post:
+      tags:
+        - Cart
+      summary: Add item to cart
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - product_id
+                - quantity
+              properties:
+                product_id:
+                  type: integer
+                  example: 1
+                quantity:
+                  type: integer
+                  example: 2
+                variation_id:
+                  type: integer
+                  nullable: true
+      responses:
+        '200':
+          description: Item added to cart
+
+  /checkout:
+    post:
+      tags:
+        - Checkout
+      summary: Process checkout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - shipping_address
+              properties:
+                coupon_code:
+                  type: string
+                  example: SAVE10
+                shipping_address:
+                  type: object
+                  required:
+                    - name
+                    - address
+                    - city
+                    - state
+                    - pincode
+                    - phone
+                    - email
+                  properties:
+                    name:
+                      type: string
+                    address:
+                      type: string
+                    city:
+                      type: string
+                    state:
+                      type: string
+                    pincode:
+                      type: string
+                    phone:
+                      type: string
+                    email:
+                      type: string
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  order:
+                    $ref: '#/components/schemas/Order'
+
+  /payment/create-order:
+    post:
+      tags:
+        - Payment
+      summary: Create Razorpay order
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - order_id
+              properties:
+                order_id:
+                  type: integer
+      responses:
+        '200':
+          description: Razorpay order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  razorpay_order_id:
+                    type: string
+                  amount:
+                    type: number
+                  currency:
+                    type: string
+                  key:
+                    type: string
+
+  /payment/verify:
+    post:
+      tags:
+        - Payment
+      summary: Verify Razorpay payment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - razorpay_payment_id
+                - razorpay_order_id
+                - razorpay_signature
+              properties:
+                razorpay_payment_id:
+                  type: string
+                razorpay_order_id:
+                  type: string
+                razorpay_signature:
+                  type: string
+      responses:
+        '200':
+          description: Payment verified successfully
+
+  /coupons/validate:
+    post:
+      tags:
+        - Coupons
+      summary: Validate coupon code
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - subtotal
+              properties:
+                code:
+                  type: string
+                  example: SAVE10
+                subtotal:
+                  type: number
+                  example: 2000
+      responses:
+        '200':
+          description: Coupon valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  discount:
+                    type: number
+                  message:
+                    type: string
+
+  /reviews:
+    post:
+      tags:
+        - Reviews
+      summary: Submit product review
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - product_id
+                - rating
+                - order_id
+              properties:
+                product_id:
+                  type: integer
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: string
+                order_id:
+                  type: integer
+      responses:
+        '201':
+          description: Review submitted
+
+  /refunds:
+    get:
+      tags:
+        - Refunds
+      summary: Get my refunds
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of refunds
+    post:
+      tags:
+        - Refunds
+      summary: Request refund
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - order_id
+                - reason
+              properties:
+                order_id:
+                  type: integer
+                reason:
+                  type: string
+                  enum: [defective, wrong_item, not_as_described, customer_not_available]
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Refund requested
+
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get all notifications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of notifications
+
+  /notifications/unread:
+    get:
+      tags:
+        - Notifications
+      summary: Get unread notifications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Unread notifications count
+
+  /affiliate:
+    get:
+      tags:
+        - Affiliate
+      summary: Get affiliate profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Affiliate details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  referral_code:
+                    type: string
+                  total_earnings:
+                    type: number
+                  level:
+                    type: integer
+
+  /affiliate/tree:
+    get:
+      tags:
+        - Affiliate
+      summary: Get affiliate tree (3 levels)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Affiliate tree structure
+
+  /payouts:
+    get:
+      tags:
+        - Payouts
+      summary: Get payout history
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of payouts
+    post:
+      tags:
+        - Payouts
+      summary: Request payout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+                - type
+              properties:
+                amount:
+                  type: number
+                  minimum: 100
+                type:
+                  type: string
+                  enum: [seller, affiliate]
+      responses:
+        '201':
+          description: Payout requested
