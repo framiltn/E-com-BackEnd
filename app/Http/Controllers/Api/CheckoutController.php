@@ -67,13 +67,7 @@ class CheckoutController extends Controller
         ]);
 
         try {
-            // Simple order creation
-            $order = \App\Models\Order::create([
-                'user_id' => auth()->id(),
-                'total_amount' => 1000, // Temporary fixed amount
-                'payment_status' => 'pending',
-                'order_status' => 'pending',
-            ]);
+            $order = $this->checkoutService->processCheckout(auth()->id(), $request->all());
 
             return response()->json([
                 'message' => 'Order created successfully',

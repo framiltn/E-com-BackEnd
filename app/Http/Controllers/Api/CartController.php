@@ -30,10 +30,12 @@ class CartController extends Controller
     {
         $request->validate([
             'product_id' => 'required|exists:products,id',
+            'variation_id' => 'nullable|exists:product_variations,id',
             'quantity' => 'integer|min:1'
         ]);
 
         $product = Product::findOrFail($request->product_id);
+        $quantityToAdd = $request->quantity ?? 1;
 
         // Check if product is approved
         if ($product->status !== 'approved') {
@@ -45,24 +47,45 @@ class CartController extends Controller
             return response()->json(['error' => 'Product price is below minimum allowed (₹1200).'], 400);
         }
 
-        // Stock check
-        if ($product->stock < 1) {
-            return response()->json(['error' => 'Product is out of stock'], 400);
+        // Stock and Variation check
+        if ($request->variation_id) {
+            $variation = \App\Models\ProductVariation::where('product_id', $product->id)
+                ->findOrFail($request->variation_id);
+            
+            $existingQty = Cart::where('user_id', auth()->id())
+                ->where('product_id', $product->id)
+                ->where('variation_id', $request->variation_id)
+                ->value('quantity') ?? 0;
+
+            if ($variation->stock < ($existingQty + $quantityToAdd)) {
+                return response()->json(['error' => 'Not enough stock available for this variation'], 400);
+            }
+        } else {
+            $existingQty = Cart::where('user_id', auth()->id())
+                ->where('product_id', $product->id)
+                ->whereNull('variation_id')
+                ->value('quantity') ?? 0;
+
+            if ($product->stock < ($existingQty + $quantityToAdd)) {
+                return response()->json(['error' => 'Not enough stock available'], 400);
+            }
         }
 
         // Add or update cart
         $cartItem = Cart::where('user_id', auth()->id())
             ->where('product_id', $product->id)
+            ->where('variation_id', $request->variation_id)
             ->first();
 
         if ($cartItem) {
-            $cartItem->quantity += $request->quantity ?? 1;
+            $cartItem->quantity += $quantityToAdd;
             $cartItem->save();
         } else {
             $cartItem = Cart::create([
                 'user_id' => auth()->id(),
                 'product_id' => $product->id,
-                'quantity' => $request->quantity ?? 1
+                'variation_id' => $request->variation_id,
+                'quantity' => $quantityToAdd
             ]);
         }
 
@@ -104,12 +127,27 @@ class CartController extends Controller
     {
         $request->validate([
             'product_id' => 'required|exists:products,id',
+            'variation_id' => 'nullable|exists:product_variations,id',
             'quantity' => 'required|integer|min:1'
         ]);
 
         $cart = Cart::where('user_id', auth()->id())
             ->where('product_id', $request->product_id)
+            ->where('variation_id', $request->variation_id)
             ->firstOrFail();
+
+        // Stock validation for update
+        if ($request->variation_id) {
+            $variation = \App\Models\ProductVariation::findOrFail($request->variation_id);
+            if ($variation->stock < $request->quantity) {
+                return response()->json(['error' => 'Not enough stock available for this variation'], 400);
+            }
+        } else {
+            $product = Product::findOrFail($request->product_id);
+            if ($product->stock < $request->quantity) {
+                return response()->json(['error' => 'Not enough stock available'], 400);
+            }
+        }
 
         $cart->update([
             'quantity' => $request->quantity
@@ -122,11 +160,13 @@ class CartController extends Controller
     public function remove(Request $request)
     {
         $request->validate([
-            'product_id' => 'required|exists:products,id'
+            'product_id' => 'required|exists:products,id',
+            'variation_id' => 'nullable|exists:product_variations,id'
         ]);
 
         Cart::where('user_id', auth()->id())
             ->where('product_id', $request->product_id)
+            ->where('variation_id', $request->variation_id)
             ->delete();
 
         return response()->json(['message' => 'Item removed']);

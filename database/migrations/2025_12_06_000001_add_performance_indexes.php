@@ -17,9 +17,9 @@ return new class extends Migration
 
         // Orders indexes
         Schema::table('orders', function (Blueprint $table) {
-            $table->index('status');
+            $table->index('order_status');
             $table->index('created_at');
-            $table->index(['user_id', 'status']);
+            $table->index(['user_id', 'order_status']);
         });
 
         // Users indexes

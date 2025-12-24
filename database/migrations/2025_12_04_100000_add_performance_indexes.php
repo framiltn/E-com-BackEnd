@@ -9,19 +9,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->index('status');
+            // These are already in 2024_01_01 migration
+            // $table->index('status');
+            // $table->index('created_at');
+            
             $table->index('seller_id');
             $table->index('category_id');
-            $table->index('created_at');
             $table->index('price'); // For price filtering
             $table->index(['status', 'created_at']); // Composite for approved products listing
         });
 
         Schema::table('orders', function (Blueprint $table) {
+            // $table->index('status'); // already in 2024_01_01
+            // $table->index('created_at'); // already in 2024_01_01
+            
             $table->index('user_id');
             $table->index('payment_status');
             $table->index('order_status');
-            $table->index('created_at');
             $table->index(['user_id', 'created_at']); // Composite for user order history
         });
 
@@ -30,14 +34,14 @@ return new class extends Migration
             $table->index('status');
         });
 
-        Schema::table('cart', function (Blueprint $table) {
+        Schema::table('carts', function (Blueprint $table) {
             $table->index('user_id');
             $table->index(['user_id', 'product_id']); // Composite for cart lookups
         });
 
         Schema::table('affiliates', function (Blueprint $table) {
             $table->index('user_id');
-            $table->index('referrer_id');
+            // $table->index('referrer_id'); // If referrer_id exists
         });
 
         Schema::table('product_images', function (Blueprint $table) {

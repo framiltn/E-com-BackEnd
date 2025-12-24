@@ -9,38 +9,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Add missing indexes on foreign keys
+        // Add only missing non-foreign key indexes or composite indexes
         Schema::table('seller_orders', function (Blueprint $table) {
-            $table->index('order_id');
-            $table->index('seller_id');
             $table->index('status');
         });
 
-        Schema::table('order_items', function (Blueprint $table) {
-            $table->index('seller_order_id');
-            $table->index('product_id');
-        });
-
         Schema::table('reviews', function (Blueprint $table) {
-            $table->index('product_id');
-            $table->index('user_id');
             $table->index('status');
         });
 
         Schema::table('refunds', function (Blueprint $table) {
-            $table->index('order_id');
-            $table->index('user_id');
             $table->index('status');
         });
 
         Schema::table('notifications', function (Blueprint $table) {
-            $table->index('user_id');
             $table->index('read_at');
             $table->index(['user_id', 'read_at']); // Composite for unread queries
         });
 
         Schema::table('coupons', function (Blueprint $table) {
-            $table->index('code');
             $table->index('is_active');
             $table->index(['is_active', 'valid_from', 'valid_to']); // Composite for active coupon queries
         });

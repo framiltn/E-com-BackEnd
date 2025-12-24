@@ -60,7 +60,7 @@ return new class extends Migration
             $table->string('type'); // order_placed, order_shipped, etc.
             $table->string('title');
             $table->text('message');
-            $table->json('data')->nullable();
+            $table->jsonb('data')->nullable();
             $table->timestamp('read_at')->nullable();
             $table->timestamps();
         });

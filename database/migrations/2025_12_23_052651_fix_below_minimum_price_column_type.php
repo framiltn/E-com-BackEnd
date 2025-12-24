@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
         Schema::table('products', function (Blueprint $table) {
             $table->dropColumn('below_minimum_price');
         });

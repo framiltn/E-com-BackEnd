@@ -55,8 +55,17 @@ class ImageUploadController extends Controller
         $imageUrl = $images[$imageIndex]['url'];
         
         // Delete file from storage
-        $path = str_replace('/storage/', '', $imageUrl);
-        Storage::disk('public')->delete($path);
+        // Extract path after /storage/
+        $path = '';
+        if (str_contains($imageUrl, '/storage/')) {
+            $path = explode('/storage/', $imageUrl)[1];
+        } else {
+            $path = basename($imageUrl); // Fallback for direct filenames
+        }
+
+        if ($path) {
+            Storage::disk('public')->delete($path);
+        }
 
         // Remove image from array
         array_splice($images, $imageIndex, 1);
