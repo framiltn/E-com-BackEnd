@@ -38,3 +38,6 @@ RUN chown -R www-data:www-data /var/www/html \
 # Expose port (Render will override)
 EXPOSE 8080
 
+# Use custom startup script
+ENTRYPOINT ["/usr/local/bin/start.sh"]
+
