@@ -13,18 +13,7 @@ RUN apt-get update && apt-get install -y \
 RUN a2enmod rewrite
 
 # Configure Apache template for Laravel + Render
-RUN printf '<VirtualHost *:PORT_PLACEHOLDER>\n\
-    ServerName localhost\n\
-    DocumentRoot /var/www/html/public\n\
-\n\
-        AllowOverride All\n\
-        Require all granted\n\
-        DirectoryIndex index.php index.html\n\
-    </Directory>\n\
-\n\
-    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
-    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
-</VirtualHost>\n' > /etc/apache2/sites-available/000-default.conf
+COPY apache-config-template /etc/apache2/sites-available/000-default.conf
 
 # Create startup script for dynamic port binding
 RUN echo '#!/bin/bash\n\
