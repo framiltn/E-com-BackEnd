@@ -1,0 +1,151 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14
+    container_name: marketplace_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: marketplace
+      POSTGRES_USER: marketplace_user
+      POSTGRES_PASSWORD: marketplace_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./E-com-BackEnd/postgresql_tuning.conf:/etc/postgresql/postgresql.conf:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    networks:
+      - marketplace
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: marketplace_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - marketplace
+
+  # Laravel Backend
+  backend:
+    build:
+      context: ./E-com-BackEnd
+      dockerfile: Dockerfile
+    container_name: marketplace_backend
+    restart: unless-stopped
+    environment:
+      APP_NAME: "Marketplace API"
+      APP_ENV: local
+      APP_DEBUG: true
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: marketplace
+      DB_USERNAME: marketplace_user
+      DB_PASSWORD: marketplace_password
+      REDIS_HOST: redis
+      REDIS_PASSWORD: null
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      MAIL_MAILER: log
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./E-com-BackEnd:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/node_modules
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - marketplace
+    command: >
+      sh -c "
+        composer install --no-interaction --optimize-autoloader &&
+        php artisan key:generate &&
+        php artisan migrate --force &&
+        php artisan db:seed &&
+        php artisan queue:work --daemon --tries=3 &
+        php artisan serve --host=0.0.0.0 --port=8000
+      "
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./E-com-FrontEnd
+      dockerfile: Dockerfile
+    container_name: marketplace_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+      NEXT_PUBLIC_RAZORPAY_KEY: rzp_test_your_key_here
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./E-com-FrontEnd:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - marketplace
+    command: >
+      sh -c "
+        npm install &&
+        npm run build &&
+        npm run start
+      "
+
+  # Queue Worker (separate container for better performance)
+  queue-worker:
+    build:
+      context: ./E-com-BackEnd
+      dockerfile: Dockerfile
+    container_name: marketplace_queue_worker
+    restart: unless-stopped
+    environment:
+      APP_NAME: "Marketplace API"
+      APP_ENV: local
+      APP_DEBUG: true
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: marketplace
+      DB_USERNAME: marketplace_user
+      DB_PASSWORD: marketplace_password
+      REDIS_HOST: redis
+      REDIS_PASSWORD: null
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      MAIL_MAILER: log
+    volumes:
+      - ./E-com-BackEnd:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/node_modules
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - marketplace
+    command: >
+      sh -c "
+        composer install --no-interaction --optimize-autoloader &&
+        php artisan queue:work --daemon --tries=3 --sleep=3
+      "
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  marketplace:
+    driver: bridge
