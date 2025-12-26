@@ -29,6 +29,7 @@ export LOG_CHANNEL=stderr\n\
 # Laravel setup & optimization\n\
 php artisan storage:link --no-interaction\n\
 php artisan migrate --force --no-interaction\n\
+php artisan db:seed --force --no-interaction\n\
 php artisan config:clear\n\
 php artisan cache:clear\n\
 apache2-foreground' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
