@@ -15,11 +15,17 @@ RUN a2enmod rewrite
 # Configure Apache template for Laravel + Render
 COPY apache-config-template /etc/apache2/sites-available/000-default.conf
 
-# Create startup script for dynamic port binding
+# Create startup script for dynamic port binding and Laravel optimization
 RUN echo '#!/bin/bash\n\
 PORT=${PORT:-8080}\n\
+echo "Starting Apache on port $PORT..."\n\
+if [ -z "$APP_KEY" ]; then\n\
+    echo "WARNING: APP_KEY is not set. Laravel will return 500 error."\n\
+fi\n\
 sed -i "s/PORT_PLACEHOLDER/$PORT/g" /etc/apache2/sites-available/000-default.conf\n\
 sed -i "s/Listen 80/Listen $PORT/g" /etc/apache2/ports.conf\n\
+# Set logging to stderr for Render logs\n\
+export LOG_CHANNEL=stderr\n\
 apache2-foreground' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
 
 # Install Composer
