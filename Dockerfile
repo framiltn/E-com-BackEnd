@@ -26,6 +26,10 @@ sed -i "s/PORT_PLACEHOLDER/$PORT/g" /etc/apache2/sites-available/000-default.con
 sed -i "s/Listen 80/Listen $PORT/g" /etc/apache2/ports.conf\n\
 # Set logging to stderr for Render logs\n\
 export LOG_CHANNEL=stderr\n\
+# Laravel setup & optimization\n\
+php artisan storage:link --no-interaction\n\
+php artisan config:clear\n\
+php artisan cache:clear\n\
 apache2-foreground' > /usr/local/bin/start.sh && chmod +x /usr/local/bin/start.sh
 
 # Install Composer
