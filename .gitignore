@@ -50,3 +50,4 @@ Homestead.yaml
 # Other sensitive files
 auth.json
 composer.lock (optional—keep if you want reproducible builds)
+node_modules

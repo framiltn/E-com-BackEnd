@@ -17,11 +17,12 @@ class AdminSeeder extends Seeder
         }
 
         // Create admin user
-        $admin = User::firstOrCreate(
+        $admin = User::updateOrCreate(
             ['email' => 'admin@marketplace.com'],
             [
                 'name' => 'Admin',
                 'password' => Hash::make('admin123'),
+                'email_verified_at' => now(),
             ]
         );
 
