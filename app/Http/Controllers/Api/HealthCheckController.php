@@ -48,17 +48,22 @@ class HealthCheckController extends Controller
     {
         try {
             DB::connection()->getPdo();
-            $userCount = DB::table('users')->count();
+            $tables = [
+                'users' => DB::table('users')->count(),
+                'roles' => DB::table('roles')->count(),
+                'affiliates' => DB::table('affiliates')->count(),
+                'personal_access_tokens' => DB::table('personal_access_tokens')->count(),
+            ];
             
             return [
                 'status' => 'ok',
                 'connection' => 'connected',
-                'users' => $userCount,
+                'tables' => $tables,
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'error',
-                'message' => 'Database connection failed',
+                'message' => 'Database check failed: ' . $e->getMessage(),
             ];
         }
     }
