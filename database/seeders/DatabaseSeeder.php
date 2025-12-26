@@ -14,6 +14,9 @@ class DatabaseSeeder extends Seeder
         // Create roles first
         $this->call(RoleSeeder::class);
         $this->call(CategorySeeder::class);
+        
+        // Create admin user
+        $this->call(AdminSeeder::class);
 
         // Optionally create a test user
         // Then assign roles as needed

@@ -18,16 +18,16 @@ class AdminSeeder extends Seeder
 
         // Create admin user
         $admin = User::firstOrCreate(
-            ['email' => 'admin@test.com'],
+            ['email' => 'admin@marketplace.com'],
             [
                 'name' => 'Admin',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make('admin123'),
             ]
         );
 
         // Assign admin role
         $admin->syncRoles(['admin']);
 
-        $this->command->info('Admin user created: admin@test.com / password123');
+        $this->command->info('Admin user created: admin@marketplace.com / admin123');
     }
 }
