@@ -79,7 +79,8 @@ class CategoryController extends Controller
             ->where('is_active', true)
             ->with(['products' => function ($query) {
                 $query->where('status', 'approved')
-                    ->with('seller:id,name');
+                    ->with('seller:id,name')
+                    ->limit(50);
             }])
             ->firstOrFail();
 

@@ -53,8 +53,11 @@ class Product extends Model
     {
         $images = [];
         
-        // Add images from relationship
-        $relationshipImages = $this->productImages()->get();
+        // Use loaded relationship to avoid N+1 queries
+        $relationshipImages = $this->relationLoaded('productImages') 
+            ? $this->productImages 
+            : $this->productImages()->get();
+            
         if ($relationshipImages->count() > 0) {
             foreach ($relationshipImages as $image) {
                 $images[] = [

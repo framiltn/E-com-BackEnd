@@ -46,13 +46,10 @@ class ProductController extends Controller
         $available = $request->query('availability');
         $sort = $request->query('sort', 'newest');
 
+        // Optimized query with minimal data
         $query = Product::query()
-            ->select('id', 'name', 'description', 'price', 'stock', 'category_id', 'brand', 'commission_level', 'seller_id', 'created_at', 'images')
+            ->select('id', 'name', 'price', 'stock', 'brand', 'seller_id', 'images')
             ->approved()
-            ->with([
-                'seller:id,name',
-                'productImages:id,product_id,url,is_primary,alt_text'
-            ])
             ->search($q)
             ->category($category)
             ->seller($sellerId)
@@ -63,39 +60,24 @@ class ProductController extends Controller
         match ($sort) {
             'price_asc' => $query->orderBy('price', 'asc'),
             'price_desc' => $query->orderBy('price', 'desc'),
-            default => $query->orderBy('created_at', 'desc'),
+            default => $query->orderBy('id', 'desc'),
         };
 
-        $paginator = $query->paginate($perPage)->appends($request->query());
+        $paginator = $query->paginate($perPage);
 
+        // Simplified data transformation
         $data = $paginator->through(fn($product) => [
             'id' => $product->id,
             'name' => $product->name,
-            'description' => $product->description,
             'price' => (float) $product->price,
             'stock' => (int) $product->stock,
-            'category' => $product->category,
             'brand' => $product->brand,
-            'commission_level' => $product->commission_level,
-            'images' => $product->getAllImages(),
-            'seller' => $product->seller ? [
-                'id' => $product->seller->id,
-                'name' => $product->seller->name,
-            ] : null,
-            'created_at' => $product->created_at->toISOString(),
+            'images' => $product->images ?: [],
+            'seller_id' => $product->seller_id,
         ]);
 
-        // Get available brands for sidebar based on current context (Category + Search)
-        // We create a separate query that applies all filters EXCEPT the brand filter itself
-        // This ensures that if a user selects a brand, they can still seeing other available brands in that category
-        $brandQuery = Product::approved()
-            ->search($q)
-            ->category($category)
-            ->seller($sellerId)
-            ->priceBetween($min, $max)
-            ->available($available);
-            
-        $brands = $brandQuery->distinct()->pluck('brand')->filter()->values();
+        // Simple brands list without complex query
+        $brands = Product::approved()->distinct()->pluck('brand')->filter()->values();
 
         return response()->json([
             'meta' => [
@@ -103,7 +85,7 @@ class ProductController extends Controller
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
                 'last_page' => $paginator->lastPage(),
-                'brands' => $brands, // Return distinct brands for frontend filter
+                'brands' => $brands,
             ],
             'data' => $data,
         ]);
@@ -175,7 +157,7 @@ class ProductController extends Controller
     public function show($id)
     {
         $product = Product::approved()
-            ->with(['seller:id,name,email', 'productImages'])
+            ->select('id', 'name', 'description', 'price', 'stock', 'brand', 'seller_id', 'images')
             ->findOrFail($id);
 
         return response()->json([
@@ -185,16 +167,9 @@ class ProductController extends Controller
                 'description' => $product->description,
                 'price' => (float) $product->price,
                 'stock' => (int) $product->stock,
-                'category' => $product->category,
                 'brand' => $product->brand,
-                'commission_level' => $product->commission_level,
-                'images' => $product->getAllImages(),
-                'seller' => $product->seller ? [
-                    'id' => $product->seller->id,
-                    'name' => $product->seller->name,
-                    'email' => $product->seller->email,
-                ] : null,
-                'created_at' => $product->created_at->toISOString(),
+                'images' => $product->images ?: [],
+                'seller_id' => $product->seller_id,
             ],
         ]);
     }
