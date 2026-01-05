@@ -58,7 +58,6 @@ class AuthController extends Controller
 
         // Default role for new users
         $user->assignRole('buyer');
-        $user->assignRole('affiliate');
 
         // Auto-enroll as affiliate (DISABLED: User must join manually)
         // $commissionService->autoEnrollAffiliate($user);
@@ -106,7 +105,7 @@ class AuthController extends Controller
     ]);
 
     // Rate limiting: max 5 login attempts per minute per email
-    $key = 'login_attempts:' . $validated['email'];
+    $key = 'login_attempts:' . strtolower($validated['email']);
     $attempts = \Illuminate\Support\Facades\Cache::get($key, 0);
     
     if ($attempts >= 5) {

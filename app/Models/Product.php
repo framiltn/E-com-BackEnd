@@ -48,45 +48,25 @@ class Product extends Model
         return $this->hasMany(ProductImage::class)->orderBy('order');
     }
 
-    // Get all images (both JSON and relationship)
     public function getAllImages()
     {
-        $images = [];
-        
-        // Use loaded relationship to avoid N+1 queries
-        $relationshipImages = $this->relationLoaded('productImages') 
-            ? $this->productImages 
-            : $this->productImages()->get();
-            
-        if ($relationshipImages->count() > 0) {
-            foreach ($relationshipImages as $image) {
-                $images[] = [
-                    'url' => $this->getFullImageUrl($image->url),
-                    'is_primary' => $image->is_primary,
-                    'alt_text' => $image->alt_text
-                ];
-            }
+        if ($this->relationLoaded('productImages') && $this->productImages->isNotEmpty()) {
+            return $this->productImages->map(fn($img) => [
+                'url' => $this->getFullImageUrl($img->url),
+                'is_primary' => $img->is_primary,
+                'alt_text' => $img->alt_text
+            ])->toArray();
         }
         
-        // Add images from JSON column if no relationship images
-        if (empty($images) && !empty($this->images)) {
-            $jsonImages = $this->images;
-            if (is_array($jsonImages)) {
-                foreach ($jsonImages as $imageItem) {
-                    $url = is_array($imageItem) ? ($imageItem['url'] ?? $imageItem['path'] ?? reset($imageItem)) : $imageItem;
-                    
-                    if (is_string($url)) {
-                        $images[] = [
-                            'url' => $this->getFullImageUrl($url),
-                            'is_primary' => true,
-                            'alt_text' => $this->name
-                        ];
-                    }
-                }
-            }
+        if (!empty($this->images) && is_array($this->images)) {
+            return collect($this->images)->map(fn($img) => [
+                'url' => $this->getFullImageUrl(is_array($img) ? ($img['url'] ?? $img['path'] ?? '') : $img),
+                'is_primary' => true,
+                'alt_text' => $this->name
+            ])->filter(fn($img) => !empty($img['url']))->values()->toArray();
         }
         
-        return $images;
+        return [];
     }
 
     private function getFullImageUrl($url)
@@ -94,15 +74,13 @@ class Product extends Model
         if (empty($url)) return null;
         if (str_starts_with($url, 'http')) return $url;
         
-        // Remove leading slash and storage prefix if present
         $url = ltrim($url, '/');
         
-        // If it's already in storage or explicitly in images public folder
-        if (str_starts_with($url, 'storage/') || str_starts_with($url, 'images/')) {
+        if (str_starts_with($url, 'images/')) {
             return url($url);
         }
         
-        return url('storage/' . $url);
+        return url('images/' . $url);
     }
 
     public function reviews()
@@ -121,22 +99,15 @@ class Product extends Model
         return $query->where('status', 'approved');
     }
 
-    // Search by name / description
     public function scopeSearch($query, ?string $term)
     {
-        if (empty($term)) {
-            return $query;
-        }
-
-        $term = trim($term);
-
-        // Use ILIKE for Postgres (case insensitive), LIKE for others
+        if (empty($term)) return $query;
+        
+        $term = '%' . trim($term) . '%';
         $operator = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
-
-        return $query->where(function ($q) use ($term, $operator) {
-            $q->where('name', $operator, "%{$term}%")
-              ->orWhere('description', $operator, "%{$term}%");
-        });
+        
+        return $query->where('name', $operator, $term)
+                    ->orWhere('description', $operator, $term);
     }
 
     // Filter by category

@@ -47,7 +47,7 @@ class ProductController extends Controller
         $sort = $request->query('sort', 'newest');
 
         $query = Product::query()
-            ->select('id', 'name', 'description', 'price', 'stock', 'brand', 'seller_id', 'images')
+            ->select('id', 'name', 'price', 'stock', 'brand', 'seller_id', 'images')
             ->approved()
             ->search($q)
             ->category($category)
@@ -67,7 +67,6 @@ class ProductController extends Controller
         $data = $paginator->through(fn($product) => [
             'id' => $product->id,
             'name' => $product->name,
-            'description' => $product->description,
             'price' => (float) $product->price,
             'stock' => (int) $product->stock,
             'brand' => $product->brand,
