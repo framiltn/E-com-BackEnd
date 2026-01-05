@@ -34,17 +34,90 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        // Ultra-fast minimal response
-        $products = \DB::table('products')
-            ->select('id', 'name', 'price', 'stock', 'brand')
-            ->where('status', 'approved')
-            ->limit(12)
-            ->get();
+        $perPage = (int) $request->query('per_page', 12);
+        $perPage = max(1, min(100, $perPage));
+
+        $q = $request->query('q');
+        $category = $request->query('category');
+        $sellerId = $request->query('seller_id');
+        $min = $request->filled('min_price') ? $request->input('min_price') : null;
+        $max = $request->filled('max_price') ? $request->input('max_price') : null;
+        $brand = $request->query('brand');
+        $available = $request->query('availability');
+        $sort = $request->query('sort', 'newest');
+
+        $query = Product::query()
+            ->select('id', 'name', 'description', 'price', 'stock', 'brand', 'seller_id', 'images')
+            ->approved()
+            ->search($q)
+            ->category($category)
+            ->seller($sellerId)
+            ->priceBetween($min, $max)
+            ->brand($brand)
+            ->available($available);
+
+        match ($sort) {
+            'price_asc' => $query->orderBy('price', 'asc'),
+            'price_desc' => $query->orderBy('price', 'desc'),
+            default => $query->orderBy('id', 'desc'),
+        };
+
+        $paginator = $query->paginate($perPage);
+
+        $data = $paginator->through(fn($product) => [
+            'id' => $product->id,
+            'name' => $product->name,
+            'description' => $product->description,
+            'price' => (float) $product->price,
+            'stock' => (int) $product->stock,
+            'brand' => $product->brand,
+            'images' => $this->formatImages($product->images),
+            'seller_id' => $product->seller_id,
+        ]);
+
+        $brands = Product::approved()->distinct()->pluck('brand')->filter()->values();
 
         return response()->json([
-            'data' => $products,
-            'meta' => ['total' => $products->count()]
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+                'brands' => $brands,
+            ],
+            'data' => $data,
         ]);
+    }
+
+    private function formatImages($images)
+    {
+        if (empty($images)) return [];
+        
+        $formatted = [];
+        if (is_array($images)) {
+            foreach ($images as $image) {
+                $url = is_string($image) ? $image : ($image['url'] ?? $image['path'] ?? '');
+                if ($url) {
+                    $formatted[] = $this->getFullImageUrl($url);
+                }
+            }
+        }
+        
+        return $formatted;
+    }
+
+    private function getFullImageUrl($url)
+    {
+        if (empty($url)) return null;
+        if (str_starts_with($url, 'http')) return $url;
+        
+        $url = ltrim($url, '/');
+        
+        if (str_starts_with($url, 'images/')) {
+            return url($url);
+        }
+        
+        return url('images/' . $url);
     }
 
     /**
@@ -124,7 +197,7 @@ class ProductController extends Controller
                 'price' => (float) $product->price,
                 'stock' => (int) $product->stock,
                 'brand' => $product->brand,
-                'images' => $product->images ?: [],
+                'images' => $this->formatImages($product->images),
                 'seller_id' => $product->seller_id,
             ],
         ]);
