@@ -34,60 +34,16 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = (int) $request->query('per_page', 12);
-        $perPage = max(1, min(100, $perPage));
-
-        $q = $request->query('q');
-        $category = $request->query('category');
-        $sellerId = $request->query('seller_id');
-        $min = $request->filled('min_price') ? $request->input('min_price') : null;
-        $max = $request->filled('max_price') ? $request->input('max_price') : null;
-        $brand = $request->query('brand');
-        $available = $request->query('availability');
-        $sort = $request->query('sort', 'newest');
-
-        // Optimized query with minimal data
-        $query = Product::query()
-            ->select('id', 'name', 'price', 'stock', 'brand', 'seller_id', 'images')
-            ->approved()
-            ->search($q)
-            ->category($category)
-            ->seller($sellerId)
-            ->priceBetween($min, $max)
-            ->brand($brand)
-            ->available($available);
-
-        match ($sort) {
-            'price_asc' => $query->orderBy('price', 'asc'),
-            'price_desc' => $query->orderBy('price', 'desc'),
-            default => $query->orderBy('id', 'desc'),
-        };
-
-        $paginator = $query->paginate($perPage);
-
-        // Simplified data transformation
-        $data = $paginator->through(fn($product) => [
-            'id' => $product->id,
-            'name' => $product->name,
-            'price' => (float) $product->price,
-            'stock' => (int) $product->stock,
-            'brand' => $product->brand,
-            'images' => $product->images ?: [],
-            'seller_id' => $product->seller_id,
-        ]);
-
-        // Simple brands list without complex query
-        $brands = Product::approved()->distinct()->pluck('brand')->filter()->values();
+        // Ultra-fast minimal response
+        $products = \DB::table('products')
+            ->select('id', 'name', 'price', 'stock', 'brand')
+            ->where('status', 'approved')
+            ->limit(12)
+            ->get();
 
         return response()->json([
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-                'last_page' => $paginator->lastPage(),
-                'brands' => $brands,
-            ],
-            'data' => $data,
+            'data' => $products,
+            'meta' => ['total' => $products->count()]
         ]);
     }
 
