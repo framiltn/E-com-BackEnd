@@ -40,21 +40,25 @@ class ProductController extends Controller
         $q = $request->query('q');
         $category = $request->query('category');
         $sellerId = $request->query('seller_id');
-        $min = $request->query('min_price');
-        $max = $request->query('max_price');
+        $min = $request->filled('min_price') ? $request->input('min_price') : null;
+        $max = $request->filled('max_price') ? $request->input('max_price') : null;
+        $brand = $request->query('brand');
+        $available = $request->query('availability');
         $sort = $request->query('sort', 'newest');
 
         $query = Product::query()
-            ->select('id', 'name', 'description', 'price', 'stock', 'category_id', 'brand', 'commission_level', 'seller_id', 'created_at')
+            ->select('id', 'name', 'description', 'price', 'stock', 'category_id', 'brand', 'commission_level', 'seller_id', 'created_at', 'images')
             ->approved()
             ->with([
                 'seller:id,name',
-                'images:id,product_id,url,is_primary,alt_text'
+                'productImages:id,product_id,url,is_primary,alt_text'
             ])
             ->search($q)
             ->category($category)
             ->seller($sellerId)
-            ->priceBetween($min, $max);
+            ->priceBetween($min, $max)
+            ->brand($brand)
+            ->available($available);
 
         match ($sort) {
             'price_asc' => $query->orderBy('price', 'asc'),
@@ -81,12 +85,25 @@ class ProductController extends Controller
             'created_at' => $product->created_at->toISOString(),
         ]);
 
+        // Get available brands for sidebar based on current context (Category + Search)
+        // We create a separate query that applies all filters EXCEPT the brand filter itself
+        // This ensures that if a user selects a brand, they can still seeing other available brands in that category
+        $brandQuery = Product::approved()
+            ->search($q)
+            ->category($category)
+            ->seller($sellerId)
+            ->priceBetween($min, $max)
+            ->available($available);
+            
+        $brands = $brandQuery->distinct()->pluck('brand')->filter()->values();
+
         return response()->json([
             'meta' => [
                 'current_page' => $paginator->currentPage(),
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
                 'last_page' => $paginator->lastPage(),
+                'brands' => $brands, // Return distinct brands for frontend filter
             ],
             'data' => $data,
         ]);
@@ -107,14 +124,36 @@ class ProductController extends Controller
      */
     public function sellerIndex(Request $request)
     {
-        $products = Product::where('seller_id', auth()->id())
-            ->with(['category', 'images'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        try {
+            $products = Product::where('seller_id', auth()->id())
+                ->with(['category', 'productImages'])
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-        return response()->json([
-            'data' => $products
-        ]);
+            $data = $products->map(fn($product) => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'description' => $product->description,
+                'price' => (float) $product->price,
+                'stock' => (int) $product->stock,
+                'category' => $product->category,
+                'brand' => $product->brand,
+                'commission_level' => $product->commission_level,
+                'status' => $product->status,
+                'images' => $product->getAllImages(),
+                'created_at' => $product->created_at->toISOString(),
+            ]);
+
+            return response()->json([
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('SellerIndex Error: ' . $e->getMessage());
+            return response()->json([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
     }
 
     /**
@@ -136,7 +175,7 @@ class ProductController extends Controller
     public function show($id)
     {
         $product = Product::approved()
-            ->with(['seller:id,name,email', 'images'])
+            ->with(['seller:id,name,email', 'productImages'])
             ->findOrFail($id);
 
         return response()->json([

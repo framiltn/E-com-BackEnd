@@ -1,0 +1,22 @@
+try {
+    echo "Starting debug...\n";
+    $product = \App\Models\Product::first();
+    if (!$product) {
+        echo "No products found in DB.\n";
+        exit;
+    }
+    echo "Product found: " . $product->id . "\n";
+    echo "Testing productImages relationship...\n";
+    $images = $product->productImages; // Access as property (lazy load)
+    echo "Relationship accessed. Count: " . $images->count() . "\n";
+    
+    echo "Testing getAllImages()...\n";
+    $allImages = $product->getAllImages();
+    echo "getAllImages result:\n";
+    print_r($allImages);
+    
+} catch (\Throwable $e) {
+    echo "EXCEPTION: " . $e->getMessage() . "\n";
+    echo "File: " . $e->getFile() . " Line: " . $e->getLine() . "\n";
+    echo $e->getTraceAsString();
+}

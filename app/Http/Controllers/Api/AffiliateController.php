@@ -31,8 +31,36 @@ class AffiliateController extends Controller
      */
     public function index(Request $request)
     {
-        $affiliate = Affiliate::where('user_id', $request->user()->id)->firstOrFail();
+        $affiliate = Affiliate::where('user_id', $request->user()->id)->first();
+        
+        if (!$affiliate) {
+            return response()->json(['message' => 'Not an affiliate'], 404);
+        }
+
         return response()->json($affiliate);
+    }
+
+    public function join(Request $request, \App\Services\CommissionService $commissionService)
+    {
+        $user = $request->user();
+        
+        $affiliate = Affiliate::where('user_id', $user->id)->first();
+        if ($affiliate) {
+            return response()->json(['message' => 'Already an affiliate'], 400); 
+        }
+
+        // Check if user has at least one order (as per requirements)
+        $hasOrders = \App\Models\Order::where('user_id', $user->id)->exists();
+        if (!$hasOrders) {
+             return response()->json(['message' => 'You must have placed at least one order to become an affiliate.'], 403);
+        }
+
+        $affiliate = $commissionService->autoEnrollAffiliate($user);
+
+        return response()->json([
+            'message' => 'Welcome to the Affiliate Program!',
+            'affiliate' => $affiliate
+        ]);
     }
 
     public function referrals(Request $request)

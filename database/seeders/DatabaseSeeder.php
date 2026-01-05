@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         
         // Create admin user
         $this->call(AdminSeeder::class);
+        $this->call(RealProductSeeder::class);
 
         // Optionally create a test user
         // Then assign roles as needed

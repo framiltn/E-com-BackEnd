@@ -1,0 +1,25 @@
+try {
+    // Login as seller
+    $seller = \App\Models\User::role('seller')->first();
+    \Illuminate\Support\Facades\Auth::login($seller);
+
+    $controller = new \App\Http\Controllers\Api\ProductController();
+    $request = \Illuminate\Http\Request::create('/api/seller/products', 'GET');
+    $response = $controller->sellerIndex($request);
+
+    $content = json_decode($response->getContent(), true);
+    
+    echo "Direct JSON Dump of Images:\n";
+    if (isset($content['data'])) {
+        foreach ($content['data'] as $p) {
+            echo "Product: " . $p['name'] . "\n";
+            print_r($p['images']);
+            echo "----------------\n";
+        }
+    } else {
+        echo "No data found or error: " . $response->getContent() . "\n";
+    }
+
+} catch (\Throwable $e) {
+    echo $e->getMessage();
+}

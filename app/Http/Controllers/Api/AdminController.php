@@ -72,6 +72,21 @@ class AdminController extends Controller
     }
 
     // Product Approvals
+    public function products(Request $request)
+    {
+        $status = $request->input('status');
+        
+        $query = Product::with('seller')->orderBy('created_at', 'desc');
+        
+        if ($status && $status !== 'all') {
+            $query->where('status', $status);
+        }
+        
+        $products = $query->paginate(20);
+
+        return response()->json($products);
+    }
+
     public function pendingProducts()
     {
         $products = Product::where('status', 'pending')
@@ -137,6 +152,23 @@ class AdminController extends Controller
         $user->delete();
 
         return response()->json(['message' => 'User deleted successfully']);
+    }
+
+    public function showUser($id)
+    {
+        $user = User::with('roles')->findOrFail($id);
+        return response()->json(['data' => $user]);
+    }
+
+    public function toggleBlock($id)
+    {
+        $user = User::findOrFail($id);
+        $user->update(['is_blocked' => !$user->is_blocked]);
+
+        return response()->json([
+            'message' => $user->is_blocked ? 'User blocked successfully' : 'User unblocked successfully',
+            'data' => $user
+        ]);
     }
 
     // Seller Management

@@ -95,7 +95,7 @@ class CartController extends Controller
     // 👉 View cart
     public function view()
     {
-        $cart = Cart::with(['product.images', 'product.seller'])
+        $cart = Cart::with(['product.productImages', 'product.seller'])
             ->where('user_id', auth()->id())
             ->get();
 

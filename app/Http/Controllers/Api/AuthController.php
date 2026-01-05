@@ -60,8 +60,8 @@ class AuthController extends Controller
         $user->assignRole('buyer');
         $user->assignRole('affiliate');
 
-        // Auto-enroll as affiliate
-        $commissionService->autoEnrollAffiliate($user);
+        // Auto-enroll as affiliate (DISABLED: User must join manually)
+        // $commissionService->autoEnrollAffiliate($user);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -126,18 +126,33 @@ class AuthController extends Controller
         ]);
     }
 
+    if ($user->is_blocked) {
+        throw ValidationException::withMessages([
+            'email' => 'Your account has been blocked. Please contact support.',
+        ]);
+    }
+
     // Clear attempts on successful login
     \Illuminate\Support\Facades\Cache::forget($key);
 
     $token = $user->createToken('auth_token')->plainTextToken;
 
-    $role = $user->getRoleNames()->first(); // first assigned role
+    $roles = $user->getRoleNames();
+    $role = 'buyer';
+    
+    if ($roles->contains('admin')) {
+        $role = 'admin';
+    } elseif ($roles->contains('seller')) {
+        $role = 'seller';
+    } elseif ($roles->isNotEmpty()) {
+        $role = $roles->first();
+    }
 
     $redirectUrl = match ($role) {
-        'admin'     => '/admin',
+        'admin'     => '/admin/dashboard',
         'seller'    => '/seller/dashboard',
         'affiliate' => '/affiliate/dashboard',
-        default     => '/dashboard', // buyer
+        default     => '/',
     };
 
     return response()->json([

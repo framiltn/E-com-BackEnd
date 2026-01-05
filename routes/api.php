@@ -137,6 +137,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Affiliate System
     Route::get('/affiliate', [AffiliateController::class, 'index']);
+    Route::post('/affiliate/join', [AffiliateController::class, 'join']);
     Route::get('/affiliate/referrals', [AffiliateController::class, 'referrals']);
     Route::get('/affiliate/tree', [AffiliateController::class, 'tree']);
 
@@ -210,6 +211,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/applications/{id}/reject', [AdminController::class, 'rejectApplication']);
 
         // Product Approvals
+        Route::get('/products', [AdminController::class, 'products']);
         Route::get('/products/pending', [AdminController::class, 'pendingProducts']);
         Route::post('/products/{id}/approve', [AdminController::class, 'approveProduct']);
         Route::post('/products/{id}/reject', [AdminController::class, 'rejectProduct']);
@@ -235,6 +237,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // User Management
         Route::get('/users', [AdminController::class, 'users']);
+        Route::get('/users/{id}', [AdminController::class, 'showUser']);
+        Route::post('/users/{id}/block', [AdminController::class, 'toggleBlock']);
         Route::delete('/users/{id}', [AdminController::class, 'deleteUser']);
 
         // Seller Management

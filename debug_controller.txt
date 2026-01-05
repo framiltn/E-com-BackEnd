@@ -1,0 +1,40 @@
+try {
+    echo "Starting Controller Debug...\n";
+
+    // 1. Find a seller
+    $seller = \App\Models\User::role('seller')->first();
+    if (!$seller) {
+        // Fallback: create a user and assign role if needed, or just pick first user
+        echo "No seller found via role, trying first user...\n";
+        $seller = \App\Models\User::first();
+    }
+    
+    if (!$seller) {
+        echo "No users found at all.\n";
+        exit;
+    }
+    
+    echo "Acting as User ID: " . $seller->id . "\n";
+    \Illuminate\Support\Facades\Auth::login($seller);
+
+    // 2. Instantiate Controller
+    $controller = new \App\Http\Controllers\Api\ProductController();
+
+    // 3. Create Request
+    $request = \Illuminate\Http\Request::create('/api/seller/products', 'GET');
+
+    // 4. Call Method
+    echo "Calling sellerIndex...\n";
+    $response = $controller->sellerIndex($request);
+
+    // 5. Output
+    echo "Response Status: " . $response->status() . "\n";
+    echo "Response Content:\n";
+    echo substr($response->getContent(), 0, 1000) . "...\n";
+
+} catch (\Throwable $e) {
+    echo "EXCEPTION in Debug Script:\n";
+    echo $e->getMessage() . "\n";
+    echo "Line: " . $e->getLine() . "\n";
+    echo "File: " . $e->getFile() . "\n";
+}

@@ -43,7 +43,7 @@ class Product extends Model
         return $this->hasMany(ProductVariation::class);
     }
 
-    public function images()
+    public function productImages()
     {
         return $this->hasMany(ProductImage::class)->orderBy('order');
     }
@@ -54,7 +54,7 @@ class Product extends Model
         $images = [];
         
         // Add images from relationship
-        $relationshipImages = $this->images()->get();
+        $relationshipImages = $this->productImages()->get();
         if ($relationshipImages->count() > 0) {
             foreach ($relationshipImages as $image) {
                 $images[] = [
@@ -66,15 +66,19 @@ class Product extends Model
         }
         
         // Add images from JSON column if no relationship images
-        if (empty($images) && !empty($this->attributes['images'])) {
-            $jsonImages = json_decode($this->attributes['images'], true);
+        if (empty($images) && !empty($this->images)) {
+            $jsonImages = $this->images;
             if (is_array($jsonImages)) {
-                foreach ($jsonImages as $imageUrl) {
-                    $images[] = [
-                        'url' => $this->getFullImageUrl($imageUrl),
-                        'is_primary' => true,
-                        'alt_text' => $this->name
-                    ];
+                foreach ($jsonImages as $imageItem) {
+                    $url = is_array($imageItem) ? ($imageItem['url'] ?? $imageItem['path'] ?? reset($imageItem)) : $imageItem;
+                    
+                    if (is_string($url)) {
+                        $images[] = [
+                            'url' => $this->getFullImageUrl($url),
+                            'is_primary' => true,
+                            'alt_text' => $this->name
+                        ];
+                    }
                 }
             }
         }
@@ -89,7 +93,9 @@ class Product extends Model
         
         // Remove leading slash and storage prefix if present
         $url = ltrim($url, '/');
-        if (str_starts_with($url, 'storage/')) {
+        
+        // If it's already in storage or explicitly in images public folder
+        if (str_starts_with($url, 'storage/') || str_starts_with($url, 'images/')) {
             return url($url);
         }
         
@@ -121,18 +127,12 @@ class Product extends Model
 
         $term = trim($term);
 
-        // Use PostgreSQL full-text search if available
-        if (DB::connection()->getDriverName() === 'pgsql') {
-            return $query->whereRaw(
-                "to_tsvector('english', name || ' ' || COALESCE(description, '')) @@ plainto_tsquery('english', ?)",
-                [$term]
-            );
-        }
+        // Use ILIKE for Postgres (case insensitive), LIKE for others
+        $operator = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
 
-        // Fallback to LIKE for other databases
-        return $query->where(function ($q) use ($term) {
-            $q->where('name', 'ilike', "%{$term}%")
-              ->orWhere('description', 'ilike', "%{$term}%");
+        return $query->where(function ($q) use ($term, $operator) {
+            $q->where('name', $operator, "%{$term}%")
+              ->orWhere('description', $operator, "%{$term}%");
         });
     }
 
@@ -168,6 +168,23 @@ class Product extends Model
         return $query;
     }
 
+    // Filter by Brand (supports comma-separated string or array)
+    public function scopeBrand($query, $brands)
+    {
+        if (blank($brands)) return $query;
+        $brandList = is_array($brands) ? $brands : explode(',', $brands);
+        return $query->whereIn('brand', $brandList);
+    }
+
+    // Filter by Availability
+    public function scopeAvailable($query, $available)
+    {
+        if ($available === 'true' || $available === true || $available === '1') {
+            return $query->where('stock', '>', 0);
+        }
+        return $query;
+    }
+
     // Helper: Get average rating
     public function averageRating()
     {
@@ -177,8 +194,8 @@ class Product extends Model
     // Helper: Get primary image
     public function primaryImage()
     {
-        return $this->images()->where('is_primary', true)->first() 
-            ?? $this->images()->first();
+        return $this->productImages()->where('is_primary', true)->first() 
+            ?? $this->productImages()->first();
     }
 
     // Helper: Check if in stock
