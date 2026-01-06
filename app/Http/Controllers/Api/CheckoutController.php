@@ -64,6 +64,10 @@ class CheckoutController extends Controller
             'shipping_address.pincode' => 'required|string',
             'shipping_address.phone' => 'required|string',
             'shipping_address.email' => 'required|email',
+            'items' => 'nullable|array',
+            'items.*.product_id' => 'required_with:items|exists:products,id',
+            'items.*.quantity' => 'required_with:items|integer|min:1',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
         ]);
 
         try {

@@ -20,11 +20,29 @@ class CheckoutService
     public function processCheckout(int $userId, array $data): Order
     {
         return DB::transaction(function () use ($userId, $data) {
-            // Get cart items
-            $cartItems = Cart::where('user_id', $userId)->with('product')->get();
+            // Check if this is a direct buy (items provided directly)
+            $isDirectBuy = isset($data['items']) && !empty($data['items']);
+            
+            if ($isDirectBuy) {
+                // Manually build cart-like objects for direct buy
+                $cartItems = collect($data['items'])->map(function ($item) use ($userId) {
+                    $cartItem = new Cart([
+                        'user_id' => $userId,
+                        'product_id' => $item['product_id'],
+                        'quantity' => $item['quantity'],
+                        'variation_id' => $item['variation_id'] ?? null,
+                    ]);
+                    // Manually load the product relationship
+                    $cartItem->setRelation('product', Product::find($item['product_id']));
+                    return $cartItem;
+                });
+            } else {
+                // Get cart items from DB
+                $cartItems = Cart::where('user_id', $userId)->with('product')->get();
+            }
             
             if ($cartItems->isEmpty()) {
-                throw new Exception('Cart is empty');
+                throw new Exception('No items to checkout');
             }
 
             // Validate stock availability
@@ -44,8 +62,10 @@ class CheckoutService
             // Split order by sellers
             $this->createSellerOrders($order, $cartItems, $totals);
 
-            // Clear cart
-            Cart::where('user_id', $userId)->delete();
+            // Clear cart only if it's NOT a direct buy
+            if (!$isDirectBuy) {
+                Cart::where('user_id', $userId)->delete();
+            }
 
             // Update coupon usage if applied
             if (!empty($data['coupon_code'])) {
