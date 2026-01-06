@@ -240,7 +240,7 @@ class RealProductSeeder extends Seeder
                 'price' => 35999.00,
                 'stock' => 5,
                 'category_id' => $getCat('home'),
-                'image' => '/images/products/home_sofa_1767596963468.png', // Fallback to Sofa
+                'image' => '/images/products/home_bed_1767695027776.png',
                 'brand' => 'Wakefit'
             ],
              [
