@@ -277,7 +277,11 @@ class RealProductSeeder extends Seeder
             $image = $data['image'];
             unset($data['image']);
             
-            $product = Product::create(array_merge($data, [
+            // Cleanup existing duplicates with same name to fix previous polluted runs
+            Product::where('name', $data['name'])->delete();
+            
+            // Create a fresh single entry
+            Product::create(array_merge($data, [
                 'seller_id' => $seller->id,
                 'status' => 'approved',
                 'commission_level' => '6-4-2',
