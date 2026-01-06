@@ -74,11 +74,32 @@ class ProductController extends Controller
             'seller_id' => $product->seller_id,
         ]);
 
-        // Get brands based on current filters (before pagination)
-    $brands = (clone $query)->distinct()->pluck('brand')->filter()->values();
+        // Get available brands based on current category and search
+    // We create a fresh query to avoid interfering with the main query builder
+    $brandQuery = Product::approved();
+    
+    if ($request->filled('category')) {
+        $brandQuery->category($request->query('category'));
+    }
+    
+    if ($request->filled('q')) {
+        $brandQuery->search($request->query('q'));
+    }
 
-    // If no filters are applied, we could cache the "all brands" list, but for dynamic filtering
-    // it's best to return what's relevant to the current view.
+    if ($request->filled('min_price') || $request->filled('max_price')) {
+         $brandQuery->priceBetween($min, $max);
+    }
+    
+    // We don't filter by brand here, because we want to show other available brands 
+    // even if one is selected (standard e-com behavior)
+    
+    $brands = \Illuminate\Support\Facades\Cache::remember(
+        'brands_' . md5(json_encode($request->all())), 
+        300, 
+        function () use ($brandQuery) {
+            return $brandQuery->distinct()->pluck('brand')->filter()->values();
+        }
+    );
 
         return response()->json([
             'meta' => [
