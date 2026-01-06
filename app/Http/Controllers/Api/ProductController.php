@@ -74,7 +74,9 @@ class ProductController extends Controller
             'seller_id' => $product->seller_id,
         ]);
 
-        $brands = Product::approved()->distinct()->pluck('brand')->filter()->values();
+        $brands = \Illuminate\Support\Facades\Cache::remember('product_brands', 3600, function () {
+        return Product::approved()->distinct()->pluck('brand')->filter()->values();
+    });
 
         return response()->json([
             'meta' => [

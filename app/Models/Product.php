@@ -103,8 +103,13 @@ class Product extends Model
     {
         if (empty($term)) return $query;
         
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            $term = trim($term);
+            return $query->whereRaw("to_tsvector('english', name || ' ' || coalesce(description, '')) @@ plainto_tsquery('english', ?)", [$term]);
+        }
+        
         $term = '%' . trim($term) . '%';
-        $operator = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+        $operator = 'like';
         
         return $query->where('name', $operator, $term)
                     ->orWhere('description', $operator, $term);
