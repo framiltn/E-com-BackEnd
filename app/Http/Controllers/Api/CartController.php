@@ -42,10 +42,10 @@ class CartController extends Controller
             return response()->json(['error' => 'Product is not available'], 400);
         }
 
-        // Minimum price check
-        if ($product->price < 1200) {
-            return response()->json(['error' => 'Product price is below minimum allowed (₹1200).'], 400);
-        }
+        // Minimum price check removed
+        // if ($product->price < 1200) {
+        //    return response()->json(['error' => 'Product price is below minimum allowed (₹1200).'], 400);
+        // }
 
         // Stock and Variation check
         if ($request->variation_id) {
