@@ -105,7 +105,11 @@ class Product extends Model
         
         if (DB::connection()->getDriverName() === 'pgsql') {
             $term = trim($term);
-            return $query->whereRaw("to_tsvector('english', name || ' ' || coalesce(description, '')) @@ plainto_tsquery('english', ?)", [$term]);
+            return $query->where(function($q) use ($term) {
+                $q->whereRaw("to_tsvector('english', name || ' ' || coalesce(description, '')) @@ plainto_tsquery('english', ?)", [$term])
+                  ->orWhere('name', 'ilike', '%' . $term . '%')
+                  ->orWhere('description', 'ilike', '%' . $term . '%');
+            });
         }
         
         $term = '%' . trim($term) . '%';
