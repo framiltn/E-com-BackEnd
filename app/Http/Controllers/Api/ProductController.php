@@ -74,9 +74,11 @@ class ProductController extends Controller
             'seller_id' => $product->seller_id,
         ]);
 
-        $brands = \Illuminate\Support\Facades\Cache::remember('product_brands', 3600, function () {
-        return Product::approved()->distinct()->pluck('brand')->filter()->values();
-    });
+        // Get brands based on current filters (before pagination)
+    $brands = (clone $query)->distinct()->pluck('brand')->filter()->values();
+
+    // If no filters are applied, we could cache the "all brands" list, but for dynamic filtering
+    // it's best to return what's relevant to the current view.
 
         return response()->json([
             'meta' => [
